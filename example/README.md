@@ -1,15 +1,21 @@
-# token_counter example
+# token_counter_example
 
-Run the example from the package root:
+A Flutter demo app for the [`token_counter`](../) package.
+
+## Features
+
+- Live character / token count as you type
+- Model selector covering GPT-4o, GPT-4, o3, Claude 4, Gemini 2, Llama 3.1
+- Input-cost estimate in USD, using the bundled pricing table
+- Side-by-side token-count comparison across 5 tokenizer families
+
+## Run
 
 ```bash
-dart run example/token_counter_example.dart
+cd example
+flutter pub get
+flutter run
 ```
 
-The sample demonstrates:
-
-1. Quick one-off estimation via `TokenCounter.estimate`.
-2. Picking a specific model via `TokenCounter.forModel(LlmModel.claude4Sonnet)`.
-3. Comparing tokenizer families (GPT-4o vs GPT-4 vs Claude vs Gemini vs Llama).
-4. Measuring a chat-style message array with per-message overhead.
-5. Estimating USD cost from token counts.
+Works on iOS, Android, macOS, Windows, Linux, and Web — the underlying
+`token_counter` package is pure Dart with no FFI or platform channels.
