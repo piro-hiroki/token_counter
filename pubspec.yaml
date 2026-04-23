@@ -1,0 +1,22 @@
+name: token_counter
+description: >-
+  Token counter for popular LLMs (OpenAI GPT, Anthropic Claude, Google Gemini,
+  Meta Llama) with multi-language support. Pure Dart, works on all Flutter
+  platforms and Dart VM.
+version: 0.1.0
+repository: https://github.com/piro-hiroki/token_counter
+issue_tracker: https://github.com/piro-hiroki/token_counter/issues
+
+topics:
+  - llm
+  - tokenizer
+  - openai
+  - anthropic
+  - gemini
+
+environment:
+  sdk: ^3.4.0
+
+dev_dependencies:
+  lints: ^5.0.0
+  test: ^1.25.0
