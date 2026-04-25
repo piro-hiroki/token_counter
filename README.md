@@ -173,6 +173,25 @@ final cost2 = counter.estimateCost(
 
 The **heuristic estimator** (default, no setup) expects ±10–20 % error. Load a vocabulary file with `loadVocab` or `loadSpVocab` for byte-exact counts.
 
+## Heuristic accuracy
+
+Benchmarked against reference counts from the official tiktoken Python library and the Vertex AI `tokenize_content` API on 12 representative inputs (English, Japanese, Chinese, Korean, mixed, code, emoji, numbers, punctuation).
+
+| Model family | Mean absolute error |
+|---|---|
+| `o200k_base` (GPT-4o) | ~15 % |
+| `cl100k_base` (GPT-4) | ~28 % |
+| Claude | ~18 % |
+| Gemini | ~24 % |
+
+Common outliers: digit-only strings (tiktoken chunks `1000000` into many 1-digit tokens) and punctuation runs (similarly fragmented). Mixed-script text containing CJK + Latin is typically within 15 %.
+
+Run the benchmark yourself:
+
+```bash
+dart run benchmark/heuristic_accuracy.dart
+```
+
 ## Accuracy vs. bundle size
 
 Shipping real vocabulary files (BPE merges, SentencePiece models) would add several MB per model to your binary. `token_counter` avoids this by using Unicode-script coefficients in heuristic mode — no assets required, negligible overhead. Switch to exact mode when you need tight bounds.
