@@ -62,6 +62,7 @@ class TiktokenPatterns {
 class TiktokenSpecialTokens {
   const TiktokenSpecialTokens._();
 
+  /// Special tokens for the `cl100k_base` vocabulary (GPT-4, GPT-3.5-turbo).
   static const Map<String, int> cl100kBase = {
     '<|endoftext|>': 100257,
     '<|fim_prefix|>': 100258,
@@ -70,6 +71,7 @@ class TiktokenSpecialTokens {
     '<|endofprompt|>': 100276,
   };
 
+  /// Special tokens for the `o200k_base` vocabulary (GPT-4o, o-series).
   static const Map<String, int> o200kBase = {
     '<|endoftext|>': 199999,
     '<|endofprompt|>': 200018,

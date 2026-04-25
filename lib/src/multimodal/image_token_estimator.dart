@@ -1,7 +1,16 @@
 import 'dart:math';
 
 /// Image detail level for OpenAI vision models.
-enum ImageDetail { low, high, auto }
+enum ImageDetail {
+  /// Fixed 85-token cost regardless of image size.
+  low,
+
+  /// Tile-based cost: higher resolution = more tokens.
+  high,
+
+  /// Automatically choose based on image dimensions (≤512 px → low, else high).
+  auto,
+}
 
 /// Estimates the token cost of an image attachment.
 ///

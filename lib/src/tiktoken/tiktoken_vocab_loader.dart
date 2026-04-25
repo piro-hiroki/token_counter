@@ -29,6 +29,7 @@ import 'dart:typed_data';
 ///     .loadVocab(AssetVocabLoader('assets/o200k_base.tiktoken'));
 /// ```
 abstract class TiktokenVocabLoader {
+  /// Const constructor for subclasses.
   const TiktokenVocabLoader();
 
   /// Returns the raw bytes of the `.tiktoken` vocabulary file.
@@ -46,8 +47,10 @@ abstract class TiktokenVocabLoader {
 ///     .loadVocab(BytesVocabLoader(bytes));
 /// ```
 class BytesVocabLoader extends TiktokenVocabLoader {
+  /// Creates a loader that returns [bytes] directly.
   const BytesVocabLoader(this.bytes);
 
+  /// The raw `.tiktoken` file bytes to return from [load].
   final Uint8List bytes;
 
   @override

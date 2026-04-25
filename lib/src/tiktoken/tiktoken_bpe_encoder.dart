@@ -12,6 +12,8 @@ import 'dart:convert';
 /// Special tokens (e.g. `<|endoftext|>`) are matched verbatim before the
 /// regex pre-tokenization step and each counted as exactly 1 token.
 class TiktokenBpeEncoder {
+  /// Creates a BPE encoder with the given [vocab], pre-tokenization [pattern],
+  /// and optional [specialTokens] map.
   TiktokenBpeEncoder({
     required this.vocab,
     required this.pattern,

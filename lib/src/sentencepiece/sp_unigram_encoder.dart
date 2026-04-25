@@ -18,6 +18,7 @@ import 'sp_proto_reader.dart';
 /// `String` already uses NFC, but the difference in token count is typically
 /// negligible.
 class SpUnigramEncoder {
+  /// Creates a tokenizer from the vocabulary entries parsed by [SpProtoReader].
   SpUnigramEncoder(List<SpPiece> pieces) {
     for (final p in pieces) {
       if (p.type == 1 || p.type == 4) {
