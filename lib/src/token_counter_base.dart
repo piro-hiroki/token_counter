@@ -2,6 +2,9 @@ import 'chat_message.dart';
 import 'heuristic_tokenizer.dart';
 import 'llm_model.dart';
 import 'model_pricing.dart';
+import 'sentencepiece/sp_proto_reader.dart';
+import 'sentencepiece/sp_unigram_encoder.dart';
+import 'sentencepiece/sp_vocab_loader.dart';
 import 'tiktoken/tiktoken_bpe_encoder.dart';
 import 'tiktoken/tiktoken_patterns.dart';
 import 'tiktoken/tiktoken_vocab_loader.dart';
@@ -10,37 +13,23 @@ import 'tiktoken/tiktoken_vocab_parser.dart';
 /// Estimates the number of tokens a string (or chat conversation) consumes
 /// when sent to a given LLM.
 ///
-/// Two modes are supported:
+/// Three modes are supported:
 ///
-/// - **Heuristic (default)**: Uses Unicode script-based coefficients derived
-///   from published tokenizer benchmarks. No assets required. Expect ±10-20%
-///   error versus the exact tokenizer.
-/// - **Exact BPE**: Loads the real tiktoken vocabulary and runs the BPE
-///   algorithm. Requires supplying the `.tiktoken` file via [loadVocab].
-///   Supported for `cl100k_base` and `o200k_base` families (OpenAI models).
-///
-/// Basic usage:
-///
-/// ```dart
-/// final counter = TokenCounter.forModel(LlmModel.gpt4o);
-/// final tokens = counter.count('Hello, world!');
-/// ```
-///
-/// Exact mode:
-///
-/// ```dart
-/// // Caller provides the raw .tiktoken file bytes (from assets, file, etc.)
-/// final counter = await TokenCounter.forModel(LlmModel.gpt4o)
-///     .loadVocab(BytesVocabLoader(vocabBytes));
-/// final tokens = counter.count('Hello, world!');
-/// ```
+/// - **Heuristic (default)**: Unicode script-based coefficients. No assets
+///   required. Expect ±10–20 % error.
+/// - **Exact tiktoken BPE** ([loadVocab]): `cl100k_base` / `o200k_base`
+///   vocabulary for OpenAI models.
+/// - **SentencePiece unigram LM** ([loadSpVocab]): `.model` file for
+///   Gemini, Llama 2, and other SentencePiece-based models.
 class TokenCounter {
   TokenCounter._({
     required this.model,
     required HeuristicTokenizer tokenizer,
     TiktokenBpeEncoder? bpeEncoder,
+    SpUnigramEncoder? spEncoder,
   }) : _tokenizer = tokenizer,
-       _bpeEncoder = bpeEncoder;
+       _bpeEncoder = bpeEncoder,
+       _spEncoder = spEncoder;
 
   /// Creates a counter for [model] using the heuristic estimator.
   factory TokenCounter.forModel(LlmModel model) {
@@ -50,41 +39,36 @@ class TokenCounter {
     );
   }
 
-  /// Shortcut that estimates tokens for [text] using GPT-4o coefficients.
-  ///
-  /// Convenient for quick one-off measurements when the exact model is
-  /// unknown or irrelevant.
-  static int estimate(String text, {LlmModel model = LlmModel.gpt4o}) {
-    return TokenCounter.forModel(model).count(text);
-  }
+  /// Shortcut that estimates tokens using GPT-4o heuristic coefficients.
+  static int estimate(String text, {LlmModel model = LlmModel.gpt4o}) =>
+      TokenCounter.forModel(model).count(text);
 
   /// The model this counter targets.
   final LlmModel model;
 
   final HeuristicTokenizer _tokenizer;
   final TiktokenBpeEncoder? _bpeEncoder;
+  final SpUnigramEncoder? _spEncoder;
 
-  /// Whether this counter is running in exact BPE mode.
-  bool get isExact => _bpeEncoder != null;
+  /// Whether this counter is using an exact encoder (tiktoken BPE or
+  /// SentencePiece unigram LM) rather than the heuristic estimator.
+  bool get isExact => _bpeEncoder != null || _spEncoder != null;
+
+  // ---------------------------------------------------------------------------
+  // Exact tiktoken BPE (v0.2)
+  // ---------------------------------------------------------------------------
 
   /// Loads a tiktoken BPE vocabulary and returns a new [TokenCounter] backed
   /// by the exact encoder.
   ///
-  /// [loader] provides the raw bytes of the `.tiktoken` vocabulary file.
-  /// [specialTokens] is an optional map of special-token strings to their
-  /// ranks (e.g. from [TiktokenSpecialTokens.cl100kBase]). Each occurrence
-  /// of a special token in the input is counted as exactly 1 token.
-  ///
-  /// Throws [ArgumentError] if [model]'s tokenizer family is not tiktoken-
-  /// compatible (`cl100kBase` or `o200kBase`).
+  /// Only supported for `cl100kBase` and `o200kBase` families (OpenAI models).
+  /// Throws [ArgumentError] for other families.
   ///
   /// ```dart
   /// final bytes = File('o200k_base.tiktoken').readAsBytesSync();
   /// final counter = await TokenCounter.forModel(LlmModel.gpt4o)
-  ///     .loadVocab(
-  ///       BytesVocabLoader(bytes),
-  ///       specialTokens: TiktokenSpecialTokens.o200kBase,
-  ///     );
+  ///     .loadVocab(BytesVocabLoader(bytes),
+  ///                specialTokens: TiktokenSpecialTokens.o200kBase);
   /// ```
   Future<TokenCounter> loadVocab(
     TiktokenVocabLoader loader, {
@@ -98,7 +82,6 @@ class TokenCounter {
         '(o200kBase, cl100kBase). Got: $family',
       );
     }
-
     final bytes = await loader.load();
     final vocab = TiktokenVocabParser.parse(bytes);
     final pattern = TiktokenPatterns.forFamily(family);
@@ -107,7 +90,6 @@ class TokenCounter {
       pattern: pattern,
       specialTokens: specialTokens,
     );
-
     return TokenCounter._(
       model: model,
       tokenizer: _tokenizer,
@@ -115,28 +97,61 @@ class TokenCounter {
     );
   }
 
+  // ---------------------------------------------------------------------------
+  // Exact SentencePiece (v0.3)
+  // ---------------------------------------------------------------------------
+
+  /// Loads a SentencePiece `.model` vocabulary and returns a new
+  /// [TokenCounter] backed by the unigram-LM encoder.
+  ///
+  /// Supported for `gemini` and `llama` families. Throws [ArgumentError] for
+  /// tiktoken families (`cl100kBase`, `o200kBase`) — use [loadVocab] instead.
+  ///
+  /// ```dart
+  /// final bytes = File('tokenizer.model').readAsBytesSync();
+  /// final counter = await TokenCounter.forModel(LlmModel.gemini2Pro)
+  ///     .loadSpVocab(BytesSpVocabLoader(bytes));
+  /// ```
+  Future<TokenCounter> loadSpVocab(SpVocabLoader loader) async {
+    final family = model.family;
+    if (family == TokenizerFamily.o200kBase ||
+        family == TokenizerFamily.cl100kBase) {
+      throw ArgumentError(
+        'loadSpVocab is not supported for tiktoken families. '
+        'Use loadVocab instead.',
+      );
+    }
+    final bytes = await loader.load();
+    final pieces = SpProtoReader.readPieces(bytes);
+    final encoder = SpUnigramEncoder(pieces);
+    return TokenCounter._(
+      model: model,
+      tokenizer: _tokenizer,
+      spEncoder: encoder,
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Core counting
+  // ---------------------------------------------------------------------------
+
   /// Returns the number of tokens in [text].
   ///
-  /// Uses exact BPE if [loadVocab] was called, otherwise uses the heuristic
-  /// estimator.
+  /// Priority: tiktoken BPE > SentencePiece > heuristic.
   int count(String text) {
     final bpe = _bpeEncoder;
     if (bpe != null) return bpe.count(text);
+    final sp = _spEncoder;
+    if (sp != null) return sp.count(text);
     return _tokenizer.count(text);
   }
 
-  /// Returns the total tokens for a chat-style [messages] array,
-  /// including per-message role/separator overhead.
-  ///
-  /// - OpenAI: ~4 tokens per message + 2 priming tokens.
-  /// - Anthropic: ~5 tokens per message.
-  /// - Others: ~4 tokens per message.
+  /// Returns the total tokens for a chat-style [messages] array including
+  /// per-message role/separator overhead.
   int countMessages(List<ChatMessage> messages) {
     if (messages.isEmpty) return 0;
-
     final overheadPerMessage = _overheadPerMessage(model.provider);
     final priming = _priming(model.provider);
-
     var total = priming;
     for (final message in messages) {
       total += overheadPerMessage;
@@ -150,10 +165,6 @@ class TokenCounter {
   }
 
   /// Estimates the USD cost of a single call.
-  ///
-  /// If [pricing] is omitted, [ModelPricing.forModel] is used. Throws
-  /// [StateError] if no pricing is available for [model] and none was
-  /// supplied.
   double estimateCost({
     required int inputTokens,
     required int outputTokens,
@@ -165,10 +176,7 @@ class TokenCounter {
         'No bundled pricing for $model. Pass a ModelPricing explicitly.',
       );
     }
-    return resolved.cost(
-      inputTokens: inputTokens,
-      outputTokens: outputTokens,
-    );
+    return resolved.cost(inputTokens: inputTokens, outputTokens: outputTokens);
   }
 
   static int _overheadPerMessage(LlmProvider provider) {
