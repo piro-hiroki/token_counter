@@ -137,9 +137,9 @@ void main() {
         const ChatMessage.user('describe this'),
       ]);
       final withImage = counter.countMessages([
-        ChatMessage.user(
+        const ChatMessage.user(
           'describe this',
-          images: [const ImageAttachment(width: 1024, height: 1024)],
+          images: [ImageAttachment(width: 1024, height: 1024)],
         ),
       ]);
       expect(withImage, greaterThan(withoutImage));
@@ -148,9 +148,9 @@ void main() {
     test('countMessages uses flat token override when provided', () {
       final counter = TokenCounter.forModel(LlmModel.gpt4o);
       final withFlat = counter.countMessages([
-        ChatMessage.user(
+        const ChatMessage.user(
           'hi',
-          images: [const ImageAttachment(flatTokens: 500)],
+          images: [ImageAttachment(flatTokens: 500)],
         ),
       ]);
       final withoutImage = counter.countMessages([
@@ -163,9 +163,9 @@ void main() {
       final counter = TokenCounter.forModel(LlmModel.gemini2Pro);
       final base = counter.countMessages([const ChatMessage.user('hi')]);
       final withImg = counter.countMessages([
-        ChatMessage.user(
+        const ChatMessage.user(
           'hi',
-          images: [const ImageAttachment(width: 512, height: 512)],
+          images: [ImageAttachment(width: 512, height: 512)],
         ),
       ]);
       expect(withImg - base, 258);

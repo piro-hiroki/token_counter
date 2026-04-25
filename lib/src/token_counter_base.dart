@@ -193,6 +193,52 @@ class TokenCounter {
     }
   }
 
+  // ---------------------------------------------------------------------------
+  // Context-window utilities (v0.5)
+  // ---------------------------------------------------------------------------
+
+  /// Returns `true` if [text] fits within [model]'s context window.
+  ///
+  /// Uses the same encoder (heuristic or exact) as [count].
+  bool fitsInContext(String text) => count(text) <= model.contextWindow;
+
+  /// Returns how many input tokens remain after placing [text] in the context,
+  /// leaving [reserveForOutput] tokens for the model's response.
+  ///
+  /// Returns a negative number if [text] already exceeds the available space.
+  ///
+  /// ```dart
+  /// final counter = TokenCounter.forModel(LlmModel.gpt4o);
+  /// final remaining = counter.remainingContextTokens(prompt, reserveForOutput: 1000);
+  /// if (remaining < 0) print('Prompt is too long!');
+  /// ```
+  int remainingContextTokens(String text, {int reserveForOutput = 0}) {
+    return model.contextWindow - count(text) - reserveForOutput;
+  }
+
+  /// Truncates [text] so that its token count does not exceed [maxTokens],
+  /// cutting from the end and preserving whole words where possible.
+  ///
+  /// This is a heuristic truncation — it binary-searches for a character
+  /// cutoff that keeps the token count at or below [maxTokens]. The result
+  /// may be up to ~10 tokens shorter than [maxTokens] due to rounding.
+  String truncate(String text, int maxTokens) {
+    if (maxTokens <= 0) return '';
+    if (count(text) <= maxTokens) return text;
+
+    var lo = 0;
+    var hi = text.length;
+    while (lo < hi) {
+      final mid = (lo + hi + 1) ~/ 2;
+      if (count(text.substring(0, mid)) <= maxTokens) {
+        lo = mid;
+      } else {
+        hi = mid - 1;
+      }
+    }
+    return text.substring(0, lo);
+  }
+
   /// Estimates the USD cost of a single call.
   double estimateCost({
     required int inputTokens,

@@ -1,3 +1,15 @@
+## 0.5.0
+
+- `LlmModel` gains `contextWindow` and `maxOutputTokens` properties for all
+  24 supported models.
+- New `TokenCounter.fitsInContext(text)` — returns `true` when the token
+  count is within the model's context window.
+- New `TokenCounter.remainingContextTokens(text, {reserveForOutput})` —
+  how many input tokens remain after placing `text` in the context.
+- New `TokenCounter.truncate(text, maxTokens)` — binary-search truncation
+  that keeps token count at or below `maxTokens`.
+- 11 new unit tests for context-window utilities and truncation.
+
 ## 0.4.0
 
 - New `ImageTokenEstimator` with provider-specific formulas:
