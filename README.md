@@ -22,7 +22,7 @@ A pure-Dart token estimator for popular large language models. Works on all Flut
 
 ```yaml
 dependencies:
-  token_counter: ^0.5.0
+  token_counter: ^1.0.0
 ```
 
 ## Usage
@@ -203,7 +203,7 @@ Shipping real vocabulary files (BPE merges, SentencePiece models) would add seve
 - [x] v0.3 — SentencePiece unigram-LM tokenizer in pure Dart
 - [x] v0.4 — Image token costs and tool/function overhead
 - [x] v0.5 — Context window properties, `fitsInContext`, `remainingContextTokens`, `truncate`
-- [ ] v1.0 — API documentation, benchmarks, stable release
+- [x] v1.0 — API documentation, benchmarks, stable release
 
 ## License
 
