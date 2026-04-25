@@ -1,3 +1,22 @@
+## 1.0.0
+
+First stable release.
+
+The public API surface is now considered stable and follows semantic
+versioning — breaking changes will require a 2.0 release.
+
+- Tightened the public API: internal encoder/parser types
+  (`HeuristicTokenizer`, `TiktokenBpeEncoder`, `SpProtoReader`,
+  `SpUnigramEncoder`, etc.) are no longer exported from the public barrel.
+  Users interact with `TokenCounter` and its loaders.
+- Added `public_member_api_docs` lint and dartdoc comments on every public
+  member.
+- Added accuracy benchmark (`benchmark/heuristic_accuracy.dart`) with 12
+  representative inputs across 4 tokenizer families. Mean absolute error:
+  GPT-4o ~15 %, GPT-4 ~28 %, Claude ~18 %, Gemini ~24 %.
+- README updated with full coverage of v0.2–v0.5 features and accuracy table.
+- CI now uses `subosito/flutter-action` so `example/` resolves correctly.
+
 ## 0.5.0
 
 - `LlmModel` gains `contextWindow` and `maxOutputTokens` properties for all
