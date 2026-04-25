@@ -1,3 +1,8 @@
+## 0.1.1
+
+- Rewrote README in English with accurate, runnable code examples.
+- Updated roadmap to mark v0.1 as complete.
+
 ## 0.1.0
 
 Initial public release.
