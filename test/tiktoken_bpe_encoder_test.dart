@@ -3,6 +3,9 @@ import 'dart:typed_data';
 
 import 'package:test/test.dart';
 import 'package:token_counter/token_counter.dart';
+import 'package:token_counter/src/tiktoken/tiktoken_bpe_encoder.dart';
+import 'package:token_counter/src/tiktoken/tiktoken_patterns.dart';
+import 'package:token_counter/src/tiktoken/tiktoken_vocab_parser.dart';
 
 // Builds a minimal synthetic .tiktoken file for deterministic testing.
 // Each entry: base64(bytes) + space + rank.
