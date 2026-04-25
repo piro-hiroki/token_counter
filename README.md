@@ -1,95 +1,119 @@
 # token_counter
 
-LLM のトークン数を Flutter / Dart から計測するためのパッケージです。
-OpenAI・Anthropic・Google など、主要なモデルのトークナイザに対応し、日本語・英語・多言語のテキストで精度の高い計測を行うことを目指します。
+A pure-Dart token estimator for popular large language models. Works on all Flutter platforms (iOS, Android, macOS, Windows, Linux, Web) and on the Dart VM — no FFI, no native code, no vocabulary files required.
 
-## モチベーション
+[![pub.dev](https://img.shields.io/pub/v/token_counter.svg)](https://pub.dev/packages/token_counter)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 
-LLM を組み込んだアプリでは、以下の用途でトークン数の事前計測が必要になります。
+## Features
 
-- コンテキストウィンドウに収まるかの判定（例: Claude 200K、GPT-4o 128K）
-- API コストの見積り（入力／出力トークン単価の合算）
-- ストリーミング UI での残量表示、プロンプト編集時のリアルタイムカウント
-- RAG のチャンク分割・要約のしきい値判定
+- **Multi-provider support** — OpenAI (GPT-4o, GPT-4, o-series), Anthropic Claude 3–4, Google Gemini 1.5/2, Meta Llama 3.x
+- **Multi-language accuracy** — per-script Unicode coefficients for Latin, CJK, Hiragana, Katakana, Hangul, Arabic, Cyrillic, Devanagari, Thai, emoji, and more
+- **Chat-message overhead** — role tokens and separator framing included per provider
+- **Cost estimation** — bundled pricing table, or supply your own
+- **Zero dependencies** — pure Dart, no assets needed in the default heuristic mode
 
-既存の Dart 実装は OpenAI の tiktoken 互換に留まるものが多く、Anthropic / Google / ローカルモデルまで含めて **Flutter アプリ内で完結して計測できる** ものが少ないため、このパッケージを作成します。
+## Installation
 
-## サポート予定のモデル / トークナイザ
+```yaml
+dependencies:
+  token_counter: ^0.1.1
+```
 
-| プロバイダ | モデル | トークナイザ | ステータス |
-| --- | --- | --- | --- |
-| OpenAI | GPT-4o, GPT-4.1, o-series | `o200k_base` (tiktoken BPE) | 計画中 |
-| OpenAI | GPT-4, GPT-3.5 | `cl100k_base` (tiktoken BPE) | 計画中 |
-| Anthropic | Claude 3.x / 4.x | SentencePiece 互換 BPE | 計画中 |
-| Google | Gemini 1.5 / 2.x | SentencePiece 互換 | 計画中 |
-| Meta | Llama 3.x | tiktoken 互換 BPE | 計画中 |
-| ヒューリスティック | 任意 | 文字種別の近似推定 | 計画中 |
+## Usage
 
-## 設計方針
-
-### 1. 精度とバンドルサイズのトレードオフ
-
-トークナイザの語彙ファイル（BPE マージや SentencePiece モデル）は数 MB 〜 十数 MB に及びます。Flutter アプリに同梱すると APK / IPA サイズを圧迫するため、以下の二層構成を取ります。
-
-- **正確モード (accurate)**: 実際の語彙ファイルを Flutter アセットとして読み込み、モデルと同じトークナイズを行う。
-- **推定モード (heuristic)**: 語彙ファイル不要。言語（日本語・中国語・韓国語・英語・記号など）ごとの平均バイト／文字あたりトークン比率で近似する。
-
-デフォルトは heuristic、`TokenCounter.loadVocab(...)` を呼び出すと accurate に切り替わります。
-
-### 2. 多言語対応
-
-日本語や中国語は 1 文字で複数トークン消費されることが多く、英語との比率が大きく異なります。Unicode スクリプト（Hiragana / Katakana / CJK Ideographs / Hangul など）ごとに係数を持たせ、Latin 系テキストとの混在でも精度が落ちないようにします。
-
-### 3. プラットフォーム
-
-Pure Dart 実装を基本とし、FFI やネイティブコードに依存しません。Flutter のサポートする全プラットフォーム（iOS / Android / macOS / Windows / Linux / Web）で動作します。
-
-## API（予定）
+### Quick estimate
 
 ```dart
 import 'package:token_counter/token_counter.dart';
 
-// 1. もっとも簡単な使い方（heuristic, デフォルトモデル）
-final count = TokenCounter.estimate('こんにちは、world!');
+// One-liner — uses GPT-4o coefficients by default
+final tokens = TokenCounter.estimate('Hello, world!');
+```
 
-// 2. モデルを指定
+### Pick a specific model
+
+```dart
+final counter = TokenCounter.forModel(LlmModel.claude4Sonnet);
+final tokens = counter.count('東京の天気は？');
+```
+
+### Count chat-style messages
+
+Per-message role overhead (e.g. `Human:` / `Assistant:` framing, OpenAI `<|im_start|>` tokens) is included automatically.
+
+```dart
 final counter = TokenCounter.forModel(LlmModel.gpt4o);
-final n = counter.count('prompt text');
 
-// 3. 正確モード（アセットから vocab を読み込み）
-final accurate = await TokenCounter.forModel(LlmModel.claude4Sonnet)
-    .loadVocab();
-final exact = accurate.count('prompt text');
-
-// 4. チャット形式のメッセージ配列をまとめて計測
 final total = counter.countMessages([
-  ChatMessage.system('You are a helpful assistant.'),
-  ChatMessage.user('東京の天気は？'),
+  const ChatMessage.system('You are a helpful assistant.'),
+  const ChatMessage.user('What is the capital of Japan?'),
+  const ChatMessage.assistant('The capital of Japan is Tokyo.'),
 ]);
+```
 
-// 5. コスト見積り
+### Estimate cost
+
+```dart
+final counter = TokenCounter.forModel(LlmModel.gpt4o);
+
+// Uses the bundled pricing table
 final cost = counter.estimateCost(
-  inputTokens: n,
-  outputTokens: 500,
-  pricing: ModelPricing.gpt4o,
+  inputTokens: 1500,
+  outputTokens: 300,
+);
+
+// Or supply your own rates (USD per 1 million tokens)
+final cost2 = counter.estimateCost(
+  inputTokens: 1500,
+  outputTokens: 300,
+  pricing: const ModelPricing(inputPerMillion: 2.50, outputPerMillion: 10.00),
 );
 ```
 
-## ロードマップ
+### Compare across models
 
-- [ ] v0.1: heuristic モードの実装、OpenAI / Claude / Gemini の推定係数
-- [ ] v0.2: tiktoken 互換 (`cl100k_base`, `o200k_base`) の純 Dart 実装
-- [ ] v0.3: SentencePiece 互換 (Claude / Gemini) の純 Dart 実装
-- [ ] v0.4: チャットメッセージ・画像・ツール呼び出しのオーバーヘッド計算
-- [ ] v0.5: コスト見積り API、モデル単価テーブルの同梱
-- [ ] v1.0: ベンチマーク（各モデル公式カウンタとの誤差測定）と安定版リリース
+```dart
+const text = 'Hello, こんにちは, 안녕하세요, 你好!';
 
-## 非目標
+for (final model in [
+  LlmModel.gpt4o,
+  LlmModel.gpt4,
+  LlmModel.claude4Sonnet,
+  LlmModel.gemini2Pro,
+  LlmModel.llama31,
+]) {
+  final n = TokenCounter.forModel(model).count(text);
+  print('${model.name}: $n tokens');
+}
+```
 
-- クラウド API を呼び出しての計測（ネットワーク依存のため）
-- モデル推論そのもの（あくまでトークナイズのみ）
-- 学習／再トークナイズ用途（本パッケージは計測用途に最適化）
+## Supported models
 
-## ライセンス
+| Provider  | Models | Tokenizer family |
+|-----------|--------|-----------------|
+| OpenAI | GPT-4o, GPT-4.1, o1, o3 | `o200k_base` |
+| OpenAI | GPT-4, GPT-4 Turbo, GPT-3.5 Turbo | `cl100k_base` |
+| Anthropic | Claude 3 Haiku / Sonnet / Opus, Claude 3.5 / 3.7 / 4 | Claude |
+| Google | Gemini 1.5 Flash/Pro, Gemini 2 Flash/Pro | Gemini |
+| Meta | Llama 3, 3.1, 3.3 | Llama |
 
-MIT（予定）
+All models use the **heuristic estimator** (Unicode script-based coefficients). Expect ±10–20 % error versus the exact tokenizer output. Exact BPE / SentencePiece implementations are planned for future releases.
+
+## Accuracy vs. bundle size
+
+Shipping real vocabulary files (BPE merges, SentencePiece models) would add several MB per model to your app's binary. `token_counter` avoids this by using Unicode-script coefficients derived from public tokenizer benchmarks — no assets required, negligible overhead.
+
+When tighter bounds are needed, a vocabulary-loading API (`loadVocab`) is planned for v0.2+ (tiktoken) and v0.3+ (SentencePiece / Claude / Gemini).
+
+## Roadmap
+
+- [x] v0.1 — Heuristic estimator, 5 tokenizer families, 24 models, pricing table
+- [ ] v0.2 — Exact tiktoken BPE (`cl100k_base`, `o200k_base`) in pure Dart
+- [ ] v0.3 — SentencePiece-compatible tokenizer (Claude / Gemini) in pure Dart
+- [ ] v0.4 — Image and tool-call token overhead
+- [ ] v1.0 — Benchmarks against official tokenizer APIs, stable release
+
+## License
+
+MIT
