@@ -3,6 +3,8 @@ import 'dart:typed_data';
 
 import 'package:test/test.dart';
 import 'package:token_counter/token_counter.dart';
+import 'package:token_counter/src/sentencepiece/sp_proto_reader.dart';
+import 'package:token_counter/src/sentencepiece/sp_unigram_encoder.dart';
 
 // ---------------------------------------------------------------------------
 // Minimal synthetic SentencePiece .model builder
