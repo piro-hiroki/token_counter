@@ -3,6 +3,7 @@
 A pure-Dart token estimator for popular large language models. Works on all Flutter platforms (iOS, Android, macOS, Windows, Linux, Web) and on the Dart VM — no FFI, no native code, no vocabulary files required.
 
 [![pub.dev](https://img.shields.io/pub/v/token_counter.svg)](https://pub.dev/packages/token_counter)
+[![CI](https://github.com/piro-hiroki/token_counter/actions/workflows/ci.yml/badge.svg)](https://github.com/piro-hiroki/token_counter/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 
 ## Features
