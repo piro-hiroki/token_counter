@@ -2,6 +2,7 @@ import 'chat_message.dart';
 import 'heuristic_tokenizer.dart';
 import 'llm_model.dart';
 import 'model_pricing.dart';
+import 'multimodal/image_token_estimator.dart';
 import 'sentencepiece/sp_proto_reader.dart';
 import 'sentencepiece/sp_unigram_encoder.dart';
 import 'sentencepiece/sp_vocab_loader.dart';
@@ -147,7 +148,10 @@ class TokenCounter {
   }
 
   /// Returns the total tokens for a chat-style [messages] array including
-  /// per-message role/separator overhead.
+  /// per-message role/separator overhead and any image attachments.
+  ///
+  /// Image token costs are calculated using [ImageTokenEstimator] for the
+  /// appropriate provider.
   int countMessages(List<ChatMessage> messages) {
     if (messages.isEmpty) return 0;
     final overheadPerMessage = _overheadPerMessage(model.provider);
@@ -160,8 +164,33 @@ class TokenCounter {
       if (name != null && name.isNotEmpty) {
         total += count(name) + 1;
       }
+      for (final img in message.images) {
+        total += _imageTokens(img);
+      }
     }
     return total;
+  }
+
+  int _imageTokens(ImageAttachment img) {
+    final flat = img.flatTokens;
+    if (flat != null) return flat;
+    final w = img.width;
+    final h = img.height;
+    if (w == null || h == null) return 0;
+    switch (model.provider) {
+      case LlmProvider.openai:
+        return ImageTokenEstimator.openai(
+          width: w,
+          height: h,
+          detail: img.detail,
+        );
+      case LlmProvider.anthropic:
+        return ImageTokenEstimator.claude(width: w, height: h);
+      case LlmProvider.google:
+        return ImageTokenEstimator.gemini();
+      case LlmProvider.meta:
+        return ImageTokenEstimator.openai(width: w, height: h);
+    }
   }
 
   /// Estimates the USD cost of a single call.
