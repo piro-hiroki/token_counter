@@ -10,6 +10,9 @@ export 'src/heuristic_tokenizer.dart' show HeuristicTokenizer;
 export 'src/llm_model.dart';
 export 'src/model_pricing.dart';
 export 'src/script_classifier.dart' show ScriptBucket;
+export 'src/sentencepiece/sp_proto_reader.dart' show SpPiece, SpProtoReader;
+export 'src/sentencepiece/sp_unigram_encoder.dart' show SpUnigramEncoder;
+export 'src/sentencepiece/sp_vocab_loader.dart';
 export 'src/tiktoken/tiktoken_bpe_encoder.dart' show TiktokenBpeEncoder;
 export 'src/tiktoken/tiktoken_patterns.dart'
     show TiktokenPatterns, TiktokenSpecialTokens;

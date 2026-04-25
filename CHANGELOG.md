@@ -1,3 +1,16 @@
+## 0.3.0
+
+- Added SentencePiece unigram-LM tokenizer in pure Dart.
+- New `SpProtoReader` — minimal protobuf decoder for `.model` files (no
+  generated code, no native dependencies).
+- New `SpUnigramEncoder` — Viterbi forward-pass segmentation.
+- New `SpVocabLoader` abstract class + `BytesSpVocabLoader` implementation.
+- New `TokenCounter.loadSpVocab(SpVocabLoader)` — switches the counter to
+  exact SentencePiece mode for `gemini`, `llama`, and `claude` families.
+- `TokenCounter.isExact` now returns `true` for both tiktoken BPE and
+  SentencePiece modes.
+- 8 new unit tests (proto parsing, Viterbi segmentation, `loadSpVocab` API).
+
 ## 0.2.0
 
 - Added exact tiktoken BPE encoder for `cl100k_base` (GPT-4, GPT-3.5-turbo)
