@@ -1,3 +1,15 @@
+## 0.4.0
+
+- New `ImageTokenEstimator` with provider-specific formulas:
+  - **OpenAI**: tile-based (512 px tiles, 170 tokens/tile + 85 base); `ImageDetail.low/high/auto`
+  - **Anthropic Claude**: `width × height / 750`
+  - **Google Gemini**: flat 258 tokens per image
+- New `ToolTokenEstimator.estimate` for function/tool definition token overhead.
+- `ChatMessage` now accepts an `images` list of `ImageAttachment` values.
+- `TokenCounter.countMessages` automatically adds image token costs per provider.
+- `ImageAttachment.flatTokens` override for when pixel dimensions are unknown.
+- 14 new unit tests for image formulas, tool estimation, and message counting.
+
 ## 0.3.0
 
 - Added SentencePiece unigram-LM tokenizer in pure Dart.

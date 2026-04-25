@@ -7,6 +7,8 @@ library;
 
 export 'src/chat_message.dart';
 export 'src/heuristic_tokenizer.dart' show HeuristicTokenizer;
+export 'src/multimodal/image_token_estimator.dart';
+export 'src/multimodal/tool_token_estimator.dart';
 export 'src/llm_model.dart';
 export 'src/model_pricing.dart';
 export 'src/script_classifier.dart' show ScriptBucket;
