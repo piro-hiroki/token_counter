@@ -1,6 +1,6 @@
 # token_counter
 
-A pure-Dart token estimator for popular large language models. Works on all Flutter platforms (iOS, Android, macOS, Windows, Linux, Web) and on the Dart VM — no FFI, no native code, no vocabulary files required.
+A pure-Dart token estimator for popular large language models. Works on all Flutter platforms (iOS, Android, macOS, Windows, Linux, Web) and on the Dart VM — no FFI, no native code.
 
 [![pub.dev](https://img.shields.io/pub/v/token_counter.svg)](https://pub.dev/packages/token_counter)
 [![CI](https://github.com/piro-hiroki/token_counter/actions/workflows/ci.yml/badge.svg)](https://github.com/piro-hiroki/token_counter/actions/workflows/ci.yml)
@@ -10,38 +10,67 @@ A pure-Dart token estimator for popular large language models. Works on all Flut
 
 - **Multi-provider support** — OpenAI (GPT-4o, GPT-4, o-series), Anthropic Claude 3–4, Google Gemini 1.5/2, Meta Llama 3.x
 - **Multi-language accuracy** — per-script Unicode coefficients for Latin, CJK, Hiragana, Katakana, Hangul, Arabic, Cyrillic, Devanagari, Thai, emoji, and more
-- **Chat-message overhead** — role tokens and separator framing included per provider
-- **Cost estimation** — bundled pricing table, or supply your own
-- **Zero dependencies** — pure Dart, no assets needed in the default heuristic mode
+- **Exact tiktoken BPE** — load `cl100k_base` / `o200k_base` vocabulary files for byte-exact OpenAI token counts
+- **Exact SentencePiece** — load `.model` files for Gemini, Llama 2, and other SentencePiece models
+- **Image token costs** — provider-specific formulas (OpenAI tile-based, Claude pixel area, Gemini flat rate)
+- **Tool/function overhead** — estimates token cost of tool definitions
+- **Context window utilities** — `fitsInContext`, `remainingContextTokens`, `truncate`
+- **Cost estimation** — bundled pricing table for all supported models
+- **Zero pub dependencies** — pure Dart, no assets needed in heuristic mode
 
 ## Installation
 
 ```yaml
 dependencies:
-  token_counter: ^0.1.1
+  token_counter: ^0.5.0
 ```
 
 ## Usage
 
-### Quick estimate
+### Quick estimate (heuristic, no setup required)
 
 ```dart
 import 'package:token_counter/token_counter.dart';
 
 // One-liner — uses GPT-4o coefficients by default
 final tokens = TokenCounter.estimate('Hello, world!');
-```
 
-### Pick a specific model
-
-```dart
+// Pick a specific model
 final counter = TokenCounter.forModel(LlmModel.claude4Sonnet);
 final tokens = counter.count('東京の天気は？');
 ```
 
-### Count chat-style messages
+### Exact tiktoken BPE (OpenAI models)
 
-Per-message role overhead (e.g. `Human:` / `Assistant:` framing, OpenAI `<|im_start|>` tokens) is included automatically.
+Vocabulary files can be downloaded from OpenAI's public CDN:
+- `cl100k_base` (GPT-4, GPT-3.5): `https://openaipublic.blob.core.windows.net/encodings/cl100k_base.tiktoken`
+- `o200k_base` (GPT-4o, GPT-4.1, o-series): `https://openaipublic.blob.core.windows.net/encodings/o200k_base.tiktoken`
+
+```dart
+// Load bytes from a file, Flutter asset, network, etc.
+final bytes = File('o200k_base.tiktoken').readAsBytesSync();
+
+final counter = await TokenCounter.forModel(LlmModel.gpt4o).loadVocab(
+  BytesVocabLoader(bytes),
+  specialTokens: TiktokenSpecialTokens.o200kBase,
+);
+
+print(counter.isExact);           // true
+print(counter.count('Hello!'));   // exact BPE token count
+```
+
+### Exact SentencePiece (Gemini, Llama 2, and others)
+
+```dart
+final bytes = File('tokenizer.model').readAsBytesSync();
+
+final counter = await TokenCounter.forModel(LlmModel.gemini2Pro)
+    .loadSpVocab(BytesSpVocabLoader(bytes));
+
+print(counter.count('Hello, world!'));
+```
+
+### Chat messages with per-message overhead
 
 ```dart
 final counter = TokenCounter.forModel(LlmModel.gpt4o);
@@ -53,18 +82,78 @@ final total = counter.countMessages([
 ]);
 ```
 
-### Estimate cost
+### Vision — image token costs
+
+```dart
+// OpenAI tile-based formula
+final imgTokens = ImageTokenEstimator.openai(
+  width: 1024,
+  height: 768,
+  detail: ImageDetail.high,
+);
+
+// Pass images directly in chat messages
+final total = counter.countMessages([
+  const ChatMessage.user(
+    'What is in this image?',
+    images: [ImageAttachment(width: 1024, height: 768)],
+  ),
+]);
+```
+
+### Tool / function overhead
+
+```dart
+final tokens = ToolTokenEstimator.estimate(
+  model: LlmModel.gpt4o,
+  tools: [
+    {
+      'type': 'function',
+      'function': {
+        'name': 'get_weather',
+        'description': 'Get current weather for a city.',
+        'parameters': {
+          'type': 'object',
+          'properties': {
+            'city': {'type': 'string'},
+          },
+        },
+      },
+    },
+  ],
+);
+```
+
+### Context window utilities
 
 ```dart
 final counter = TokenCounter.forModel(LlmModel.gpt4o);
 
-// Uses the bundled pricing table
-final cost = counter.estimateCost(
-  inputTokens: 1500,
-  outputTokens: 300,
-);
+// Check if content fits
+if (!counter.fitsInContext(prompt)) {
+  // How many tokens are left after placing prompt, reserving 1 000 for output
+  final remaining = counter.remainingContextTokens(
+    prompt,
+    reserveForOutput: 1000,
+  );
+  // Truncate to fit
+  prompt = counter.truncate(prompt, remaining);
+}
 
-// Or supply your own rates (USD per 1 million tokens)
+// Context window and max output for any model
+print(LlmModel.gpt4o.contextWindow);     // 128000
+print(LlmModel.gemini15Pro.contextWindow); // 2097152
+```
+
+### Cost estimation
+
+```dart
+final counter = TokenCounter.forModel(LlmModel.gpt4o);
+
+// Uses bundled pricing table
+final cost = counter.estimateCost(inputTokens: 1500, outputTokens: 300);
+
+// Override with custom rates (USD per 1 million tokens)
 final cost2 = counter.estimateCost(
   inputTokens: 1500,
   outputTokens: 300,
@@ -72,48 +161,30 @@ final cost2 = counter.estimateCost(
 );
 ```
 
-### Compare across models
-
-```dart
-const text = 'Hello, こんにちは, 안녕하세요, 你好!';
-
-for (final model in [
-  LlmModel.gpt4o,
-  LlmModel.gpt4,
-  LlmModel.claude4Sonnet,
-  LlmModel.gemini2Pro,
-  LlmModel.llama31,
-]) {
-  final n = TokenCounter.forModel(model).count(text);
-  print('${model.name}: $n tokens');
-}
-```
-
 ## Supported models
 
-| Provider  | Models | Tokenizer family |
-|-----------|--------|-----------------|
-| OpenAI | GPT-4o, GPT-4.1, o1, o3 | `o200k_base` |
+| Provider  | Models | Tokenizer |
+|-----------|--------|-----------|
+| OpenAI | GPT-4o, GPT-4.1, o1, o3, GPT-4o mini | `o200k_base` |
 | OpenAI | GPT-4, GPT-4 Turbo, GPT-3.5 Turbo | `cl100k_base` |
-| Anthropic | Claude 3 Haiku / Sonnet / Opus, Claude 3.5 / 3.7 / 4 | Claude |
-| Google | Gemini 1.5 Flash/Pro, Gemini 2 Flash/Pro | Gemini |
-| Meta | Llama 3, 3.1, 3.3 | Llama |
+| Anthropic | Claude 3 Haiku/Sonnet/Opus, Claude 3.5/3.7/4 | Claude (heuristic) |
+| Google | Gemini 1.5 Flash/Pro, Gemini 2 Flash/Pro | SentencePiece / heuristic |
+| Meta | Llama 3, 3.1, 3.3 | tiktoken-compatible / heuristic |
 
-All models use the **heuristic estimator** (Unicode script-based coefficients). Expect ±10–20 % error versus the exact tokenizer output. Exact BPE / SentencePiece implementations are planned for future releases.
+The **heuristic estimator** (default, no setup) expects ±10–20 % error. Load a vocabulary file with `loadVocab` or `loadSpVocab` for byte-exact counts.
 
 ## Accuracy vs. bundle size
 
-Shipping real vocabulary files (BPE merges, SentencePiece models) would add several MB per model to your app's binary. `token_counter` avoids this by using Unicode-script coefficients derived from public tokenizer benchmarks — no assets required, negligible overhead.
-
-When tighter bounds are needed, a vocabulary-loading API (`loadVocab`) is planned for v0.2+ (tiktoken) and v0.3+ (SentencePiece / Claude / Gemini).
+Shipping real vocabulary files (BPE merges, SentencePiece models) would add several MB per model to your binary. `token_counter` avoids this by using Unicode-script coefficients in heuristic mode — no assets required, negligible overhead. Switch to exact mode when you need tight bounds.
 
 ## Roadmap
 
 - [x] v0.1 — Heuristic estimator, 5 tokenizer families, 24 models, pricing table
-- [ ] v0.2 — Exact tiktoken BPE (`cl100k_base`, `o200k_base`) in pure Dart
-- [ ] v0.3 — SentencePiece-compatible tokenizer (Claude / Gemini) in pure Dart
-- [ ] v0.4 — Image and tool-call token overhead
-- [ ] v1.0 — Benchmarks against official tokenizer APIs, stable release
+- [x] v0.2 — Exact tiktoken BPE (`cl100k_base`, `o200k_base`) in pure Dart
+- [x] v0.3 — SentencePiece unigram-LM tokenizer in pure Dart
+- [x] v0.4 — Image token costs and tool/function overhead
+- [x] v0.5 — Context window properties, `fitsInContext`, `remainingContextTokens`, `truncate`
+- [ ] v1.0 — API documentation, benchmarks, stable release
 
 ## License
 
