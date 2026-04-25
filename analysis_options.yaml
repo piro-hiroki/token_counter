@@ -13,5 +13,6 @@ linter:
     - avoid_print
     - prefer_const_constructors
     - prefer_final_locals
+    - public_member_api_docs
     - sort_pub_dependencies
     - unawaited_futures

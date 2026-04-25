@@ -4,6 +4,7 @@ import 'dart:typed_data';
 
 /// A single vocabulary entry from a SentencePiece `.model` file.
 class SpPiece {
+  /// Creates a vocabulary entry.
   const SpPiece({required this.piece, required this.score, required this.type});
 
   /// The token surface form (may contain ▁ for spaces).

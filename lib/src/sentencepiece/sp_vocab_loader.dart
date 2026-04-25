@@ -33,6 +33,7 @@ import 'dart:typed_data';
 /// models use proprietary vocabulary files that are not publicly available;
 /// for those providers the heuristic estimator is used by default.
 abstract class SpVocabLoader {
+  /// Const constructor for subclasses.
   const SpVocabLoader();
 
   /// Returns the raw bytes of the SentencePiece `.model` file.
@@ -47,8 +48,10 @@ abstract class SpVocabLoader {
 ///     .loadSpVocab(BytesSpVocabLoader(bytes));
 /// ```
 class BytesSpVocabLoader extends SpVocabLoader {
+  /// Creates a loader that returns [bytes] directly.
   const BytesSpVocabLoader(this.bytes);
 
+  /// The raw `.model` file bytes to return from [load].
   final Uint8List bytes;
 
   @override

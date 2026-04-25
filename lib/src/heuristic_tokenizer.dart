@@ -10,8 +10,10 @@ import 'script_classifier.dart';
 /// This is an approximation — expect ±10-20% error versus the exact
 /// tokenizer. Load real vocabularies when you need tighter bounds.
 class HeuristicTokenizer {
+  /// Creates a heuristic tokenizer for [family].
   const HeuristicTokenizer(this.family);
 
+  /// The tokenizer family whose coefficients are used.
   final TokenizerFamily family;
 
   /// Estimates the number of tokens in [text] for this tokenizer family.

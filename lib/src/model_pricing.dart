@@ -5,12 +5,16 @@ import 'llm_model.dart';
 /// Values reflect publicly posted list prices and may become stale. Override
 /// with current numbers via the default constructor if needed.
 class ModelPricing {
+  /// Creates a [ModelPricing] with explicit per-million-token rates in USD.
   const ModelPricing({
     required this.inputPerMillion,
     required this.outputPerMillion,
   });
 
+  /// Cost in USD per 1 000 000 input (prompt) tokens.
   final double inputPerMillion;
+
+  /// Cost in USD per 1 000 000 output (completion) tokens.
   final double outputPerMillion;
 
   /// Returns the estimated cost in USD for the given token counts.
